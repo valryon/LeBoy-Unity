@@ -18,5 +18,5 @@ A quick and experimental Unity frontend for [mrhelmut's LeBoy (GB emulator)](htt
 ## Know issues
 
 - Clock is too fast in builds.
--
+- Insupported .NET 4.5 features like "AggressiveInlining" compiler attribute
 - And everything related to LeBoy, obviously, like sound

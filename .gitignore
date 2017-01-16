@@ -35,3 +35,4 @@ Thumbs.db
 # GameBoy      #
 # ============ #
 *.gb
+*.gb.meta

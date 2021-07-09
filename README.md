@@ -6,7 +6,7 @@ A quick and experimental Unity frontend for [mrhelmut's LeBoy GB emulator](https
 
 ## Versions
 
-- Unity 5.5.0f3
+- Unity 2021.1.12f1
 
 ## Attribution
 
@@ -27,6 +27,4 @@ A quick and experimental Unity frontend for [mrhelmut's LeBoy GB emulator](https
 ## Know issues
 
 - Clock is too fast in builds
-- Cannot make a submodule directly as it would also checkout the MonoGame frontend
-- Insupported .NET 4.5 features like `AggressiveInlining` compiler attribute
-- And everything related to LeBoy, obviously, like sound
+- And everything related to LeBoy, obviously

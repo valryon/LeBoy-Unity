@@ -6,11 +6,11 @@ namespace LeBoy.Unity
     public class LeBoyLight : MonoBehaviour
     {
         public LeBoyScript leboy;
-        public Image light;
+        public Image gbLight;
 
         private void Update()
         {
-            light.enabled = leboy != null && leboy.IsOn;
+            gbLight.enabled = leboy != null && leboy.IsOn;
         }
     }
 }

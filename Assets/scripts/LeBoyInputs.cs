@@ -2,7 +2,7 @@
 
 namespace LeBoy.Unity
 {
-    public class LeBoyInputScript : MonoBehaviour
+    public class LeBoyInputs : MonoBehaviour
     {
         [Header("Inputs")]
         public KeyCode keyLeftArrow = KeyCode.LeftArrow;

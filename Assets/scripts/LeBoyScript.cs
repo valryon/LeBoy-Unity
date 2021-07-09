@@ -1,4 +1,5 @@
-﻿using LeBoyLib;
+﻿using System;
+using LeBoyLib;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
@@ -9,36 +10,42 @@ namespace LeBoy.Unity
 {
     #region LeBoy
 
-    [RequireComponent(typeof(SpriteRenderer))]
-    [RequireComponent(typeof(LeBoyInputScript))]
     public class LeBoyScript : MonoBehaviour
     {
         public const int WIDTH = 160;
         public const int HEIGHT = 144;
-        
+
+        [Header("Bindings")]
+        public SpriteRenderer spriteRenderer;
+
+        public LeBoyInputs input;
+        public LeBoyAudioChannel audioChannel1;
+        public LeBoyAudioChannel audioChannel2;
+        public LeBoyAudioChannel audioChannel3;
+        public LeBoyAudioChannel audioChannel4;
+
         [Header("ROM")]
         public string romName;
 
-        private SpriteRenderer spriteRenderer;
         private Texture2D emulatorBackBuffer;
         private GBZ80 emulator;
         private bool keepEmulatorRunning = false;
-        
-        private byte[] audioBuffer1 = new byte[1000000];
+
+        public const int AUDIO_BUFFER_SIZE = GBZ80.SPUSampleRate * 2;
+        private readonly short[] audioBuffer1 = new short[AUDIO_BUFFER_SIZE];
         private int bufferLength1 = 0;
-        private byte[] audioBuffer2 = new byte[1000000];
+        private readonly short[] audioBuffer2 = new short[AUDIO_BUFFER_SIZE];
         private int bufferLength2 = 0;
-        private byte[] audioBuffer3 = new byte[1000000];
+        private readonly short[] audioBuffer3 = new short[AUDIO_BUFFER_SIZE];
         private int bufferLength3 = 0;
-        private byte[] audioBuffer4 = new byte[1000000];
+        private readonly short[] audioBuffer4 = new short[AUDIO_BUFFER_SIZE];
         private int bufferLength4 = 0;
-        
+
         private object channel1lock = new object();
         private object channel2lock = new object();
         private object channel3lock = new object();
         private object channel4lock = new object();
-        
-        private LeBoyInputScript input;
+
         private Thread emulatorThread;
 
         public bool IsOn => keepEmulatorRunning && emulator != null;
@@ -46,9 +53,6 @@ namespace LeBoy.Unity
         void Awake()
         {
             // Prepare render
-            spriteRenderer = GetComponent<SpriteRenderer>();
-            input = GetComponent<LeBoyInputScript>();
-
             emulatorBackBuffer = new Texture2D(WIDTH, HEIGHT, TextureFormat.RGB24, false, false);
             spriteRenderer.sprite = Sprite.Create(emulatorBackBuffer,
                 new Rect(0, 0, emulatorBackBuffer.width, emulatorBackBuffer.height), Vector2.one * 0.5f);
@@ -87,7 +91,7 @@ namespace LeBoy.Unity
                 keepEmulatorRunning = false;
             }
         }
-        
+
         void FixedUpdate()
         {
             emulator.JoypadState[0] = input.Right;
@@ -114,17 +118,52 @@ namespace LeBoy.Unity
                         float r = backbuffer[i + 2] / 255f;
                         float a = backbuffer[i + 3] / 255f;
 
-                        // TODO BGRA
                         emulatorBackBuffer.SetPixel(x, HEIGHT - y, new Color(r, g, b, a));
                     }
-
                 }
 
                 emulatorBackBuffer.Apply();
             }
+
+            // Sound
+            lock (channel1lock)
+            {
+                if (bufferLength1 > 0)
+                {
+                    audioChannel1.SetAudioBuffer(audioBuffer1, bufferLength1);
+                    bufferLength1 = 0;
+                }
+            }
+
+            lock (channel2lock)
+            {
+                if (bufferLength2 > 0)
+                {
+                    audioChannel2.SetAudioBuffer(audioBuffer2, bufferLength2);
+                    bufferLength2 = 0;
+                }
+            }
+
+            lock (channel3lock)
+            {
+                if (bufferLength3 > 0)
+                {
+                    audioChannel3.SetAudioBuffer(audioBuffer3, bufferLength3);
+                    bufferLength3 = 0;
+                }
+            }
+
+            lock (channel4lock)
+            {
+                if (bufferLength4 > 0)
+                {
+                    audioChannel4.SetAudioBuffer(audioBuffer4, bufferLength4);
+                    bufferLength4 = 0;
+                }
+            }
         }
-        
-         private void EmulatorWork()
+
+        private void EmulatorWork()
         {
             double emulationElapsed = 0.0f;
             double lastElapsedTime = 0.0f;
@@ -146,16 +185,11 @@ namespace LeBoy.Unity
                     {
                         lock (channel1lock)
                         {
-                            for (int i = 0; i < emulator.Channel1Samples; i += 2)
+                            for (int i = 0; i < emulator.Channel1Samples; i++)
                             {
-                                audioBuffer1[bufferLength1] = (byte)(emulator.Channel1Buffer[i + 1] & 0x00FF); // low right
-                                audioBuffer1[bufferLength1 + 1] = (byte)((emulator.Channel1Buffer[i + 1] & 0xFF00) >> 8); // high right
-
-                                audioBuffer1[bufferLength1 + 2] = (byte)(emulator.Channel1Buffer[i] & 0x00FF); // low left
-                                audioBuffer1[bufferLength1 + 3] = (byte)((emulator.Channel1Buffer[i] & 0xFF00) >> 8); // high left
-                                bufferLength1 += 4;
+                                audioBuffer1[bufferLength1] = emulator.Channel1Buffer[i];
+                                bufferLength1++;
                             }
-                            emulator.Channel1Samples = 0;
                         }
                     }
 
@@ -163,16 +197,11 @@ namespace LeBoy.Unity
                     {
                         lock (channel2lock)
                         {
-                            for (int i = 0; i < emulator.Channel2Samples; i += 2)
+                            for (int i = 0; i < emulator.Channel2Samples; i++)
                             {
-                                audioBuffer2[bufferLength2 ] = (byte)(emulator.Channel2Buffer[i + 1] & 0x00FF); // low right
-                                audioBuffer2[bufferLength2 + 1] = (byte)((emulator.Channel2Buffer[i + 1] & 0xFF00) >> 8); // high right
-
-                                audioBuffer2[bufferLength2 + 2] = (byte)(emulator.Channel2Buffer[i] & 0x00FF); // low left
-                                audioBuffer2[bufferLength2 + 3] = (byte)((emulator.Channel2Buffer[i] & 0xFF00) >> 8); // high left
-                                bufferLength2 += 4;
+                                audioBuffer2[bufferLength2] = emulator.Channel2Buffer[i];
+                                bufferLength2++;
                             }
-                            emulator.Channel2Samples = 0;
                         }
                     }
 
@@ -180,16 +209,11 @@ namespace LeBoy.Unity
                     {
                         lock (channel3lock)
                         {
-                            for (int i = 0; i < emulator.Channel3Samples; i += 2)
+                            for (int i = 0; i < emulator.Channel3Samples; i++)
                             {
-                                audioBuffer3[bufferLength3] = (byte)(emulator.Channel3Buffer[i + 1] & 0x00FF); // low right
-                                audioBuffer3[bufferLength3 + 1] = (byte)((emulator.Channel3Buffer[i + 1] & 0xFF00) >> 8); // high right
-
-                                audioBuffer3[bufferLength3 + 2] = (byte)(emulator.Channel3Buffer[i] & 0x00FF); // low left
-                                audioBuffer3[bufferLength3 + 3] = (byte)((emulator.Channel3Buffer[i] & 0xFF00) >> 8); // high left
-                                bufferLength3 += 4;
+                                audioBuffer3[bufferLength3] = emulator.Channel3Buffer[i];
+                                bufferLength3++;
                             }
-                            emulator.Channel3Samples = 0;
                         }
                     }
 
@@ -197,18 +221,18 @@ namespace LeBoy.Unity
                     {
                         lock (channel4lock)
                         {
-                            for (int i = 0; i < emulator.Channel4Samples; i += 2)
+                            for (int i = 0; i < emulator.Channel4Samples; i++)
                             {
-                                audioBuffer4[bufferLength4] = (byte)(emulator.Channel4Buffer[i + 1] & 0x00FF); // low right
-                                audioBuffer4[bufferLength4 + 1] = (byte)((emulator.Channel4Buffer[i + 1] & 0xFF00) >> 8); // high right
-
-                                audioBuffer4[bufferLength4 + 2] = (byte)(emulator.Channel4Buffer[i] & 0x00FF); // low left
-                                audioBuffer4[bufferLength4 + 3] = (byte)((emulator.Channel4Buffer[i] & 0xFF00) >> 8); // high left
-                                bufferLength4 += 4;
+                                audioBuffer4[bufferLength4] = emulator.Channel4Buffer[i];
+                                bufferLength4++;
                             }
-                            emulator.Channel4Samples = 0;
                         }
                     }
+
+                    emulator.Channel1Samples = 0;
+                    emulator.Channel2Samples = 0;
+                    emulator.Channel3Samples = 0;
+                    emulator.Channel4Samples = 0;
                 }
 
                 long elapsed = s.ElapsedTicks;
